@@ -1,0 +1,146 @@
+=====================================================
+  LAMS v2.0 - MR_LUPEX99
+  HATUA ZA KUFUATA (WINDOWS)
+=====================================================
+
+HATUA YA 1: Pakua na fungua faili
+---------------------------------
+1. Pakua LAMS_v2_MR_LUPEX99.zip
+2. Extract (Extract All) kwenye Desktop au Documents
+3. Utapata folder: lams-v2
+
+
+HATUA YA 2: Install Node.js
+---------------------------
+1. Nenda: https://nodejs.org
+2. Download LTS version
+3. Install (Next, Next, Finish)
+4. Fungua Command Prompt (cmd) na andika:
+   node -v
+   (unapaswa kuona namba kama v20.x.x)
+
+
+HATUA YA 3: Install PostgreSQL
+------------------------------
+1. Nenda: https://www.postgresql.org/download/windows/
+2. Download installer
+3. Install - kumbuka PASSWORD unayoweka (mfano: postgres123)
+4. Port: 5432 (default)
+5. Finish
+
+
+HATUA YA 4: Tengeneza Database
+------------------------------
+1. Fungua "SQL Shell (psql)" kutoka Start Menu
+2. Bofya Enter Enter Enter... mpaka iulize password
+3. Andika password ya PostgreSQL
+4. Andika commands hizi:
+
+   CREATE DATABASE lams_lupex;
+
+   \c lams_lupex
+
+5. Sasa run schema:
+   - Fungua File Explorer
+   - Nenda kwenye folder lams-v2\database\
+   - Nakili path kamili ya schema.sql
+   
+   Kwenye psql andika (badilisha path):
+   \i 'C:/Users/JINA_LAKO/Desktop/lams-v2/database/schema.sql'
+
+   AU fungua pgAdmin na run schema.sql huko.
+
+
+HATUA YA 5: Backend (API)
+-------------------------
+1. Fungua Command Prompt (cmd)
+2. Andika:
+
+   cd Desktop\lams-v2\backend
+
+   (au path yako kamili)
+
+3. Nakili file ya env:
+   copy .env.example .env
+
+4. Fungua .env kwa Notepad na hariri:
+   DB_PASSWORD=password_yako_ya_postgres
+   JWT_SECRET=siri_ndefu_123456789
+
+5. Install na start:
+   npm install
+   node src\config\seed.js
+   npm run dev
+
+6. Utaona: LAMS v2.0 API running on port 4000
+   (USIFUNGE window hii)
+
+
+HATUA YA 6: Frontend (Website)
+------------------------------
+1. Fungua Command Prompt MPYA (window nyingine)
+2. Andika:
+
+   cd Desktop\lams-v2\frontend
+   copy .env.local.example .env.local
+   npm install
+   npm run dev
+
+3. Utaona: http://localhost:3000
+   (USIFUNGE window hii pia)
+
+
+HATUA YA 7: Fungua browser
+--------------------------
+1. Fungua Chrome / Edge
+2. Andika address:
+   http://localhost:3000
+
+3. Login:
+   Username: owner
+   Password: Lupex2026!
+
+
+=====================================================
+  MUHIMU
+=====================================================
+- Backend (4000) na Frontend (3000) LAZIMA ziwe zinatumika
+  zote mbili wakati unatumia system.
+- Kama unafunga cmd windows, system itasimama.
+- Kila mara unapotaka kutumia tena:
+  1. cmd → backend → npm run dev
+  2. cmd → frontend → npm run dev
+  3. browser → localhost:3000
+
+
+=====================================================
+  KAMA UNA ERROR
+=====================================================
+- "npm is not recognized" → Node.js haija-install vizuri
+- "password authentication failed" → DB_PASSWORD si sahihi kwenye .env
+- "This page can't be reached" → servers hazija-start (npm run dev)
+- "database lams_lupex does not exist" → hatua ya 4 haijakamilika
+
+Uliza msaada ukipeleka screenshot ya error.
+=====================================================
+
+=====================================================
+  PAGES ZOTE (baada ya login)
+=====================================================
+/dashboard   - Owner Dashboard
+/operations  - Ops + Approvals
+/purchases   - Manunuzi
+/sales       - Mauzo
+/stock       - Stock + Physical count
+/debts       - Madeni
+/expenses    - Gharama
+/cashflow    - Cash Flow
+/position    - Business Position
+/reports     - Ripoti Wiki/Mwezi/Mwaka
+/dailyclose  - Daily Close
+/farmers     - Wakulima
+/buyers      - Buyers
+/payments    - Malipo
+/deal        - Deal Calculator
+/settings    - Settings
+=====================================================
