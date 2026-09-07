@@ -18,6 +18,13 @@ export default function SettingsPage() {
   const [pwd, setPwd] = useState({ current: '', newPass: '', confirm: '' });
   const [pwdMsg, setPwdMsg] = useState('');
   const [pwdError, setPwdError] = useState('');
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoMsg, setLogoMsg] = useState('');
+  const [logoError, setLogoError] = useState('');
+  const [uploading, setUploading] = useState(false);
+
+  const user = typeof window !== 'undefined' ? getUser() : null;
+  const isOwner = user?.role === 'OWNER';
 
   useEffect(() => {
     if (!getUser()) { router.push('/login'); return; }
@@ -35,6 +42,7 @@ export default function SettingsPage() {
           managerLimit: s.business.manager_limit || '',
           maxLossPct: s.business.max_loss_pct || '',
         });
+        if (s.business.logo_image) setLogoPreview(s.business.logo_image);
       }
       if (c[0]) setLock((l) => ({ ...l, cropId: c[0].id }));
     } catch (err) {
@@ -88,7 +96,6 @@ export default function SettingsPage() {
     e.preventDefault();
     setPwdMsg('');
     setPwdError('');
-
     if (pwd.newPass !== pwd.confirm) {
       setPwdError('New password na confirm hazifanani');
       return;
@@ -97,7 +104,6 @@ export default function SettingsPage() {
       setPwdError('Password mpya iwe angalau herufi 4');
       return;
     }
-
     try {
       await api('/auth/change-password', {
         method: 'POST',
@@ -113,32 +119,126 @@ export default function SettingsPage() {
     }
   }
 
+  function handleLogoSelect(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoError('');
+    setLogoMsg('');
+
+    if (!file.type.startsWith('image/')) {
+      setLogoError('Chagua picha tu (JPG, PNG, n.k.)');
+      return;
+    }
+    if (file.size > 400000) {
+      setLogoError('Picha ni kubwa. Tumia picha chini ya 400KB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLogoPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function saveLogo(e) {
+    e.preventDefault();
+    if (!logoPreview) {
+      setLogoError('Chagua picha kwanza');
+      return;
+    }
+    setUploading(true);
+    setLogoError('');
+    setLogoMsg('');
+    try {
+      await api('/settings/logo', {
+        method: 'PUT',
+        body: JSON.stringify({ logoImage: logoPreview }),
+      });
+      setLogoMsg('Picha imehifadhiwa! Refresh ukurasa uione kwenye Nav.');
+    } catch (err) {
+      setLogoError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <>
       <Nav />
       <div className="container">
         <h1 className="section-title">Settings</h1>
-        <p className="muted" style={{ marginBottom: 20 }}>Approval limits + Price lock + Change Password</p>
+        <p className="muted" style={{ marginBottom: 20 }}>
+          Approval limits · Price lock · Password · Logo
+        </p>
 
         {error && <div className="alert alert-error">{error}</div>}
         {msg && <div className="alert alert-info">{msg}</div>}
+
+        {isOwner && (
+          <div className="card" style={{ marginBottom: 24, maxWidth: 480 }}>
+            <h3 style={{ color: 'var(--text)', marginBottom: 16 }}>Picha ya Biashara (Logo)</h3>
+            <p className="muted" style={{ marginBottom: 12, fontSize: '0.85rem' }}>
+              Picha hii itaonekana kwa users wote juu kwenye menu.
+            </p>
+            {logoError && <div className="alert alert-error">{logoError}</div>}
+            {logoMsg && <div className="alert alert-info">{logoMsg}</div>}
+            <form onSubmit={saveLogo}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+                {logoPreview ? (
+                  <img
+                    src={logoPreview}
+                    alt="Preview"
+                    style={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      border: '3px solid var(--primary, #22c55e)',
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: '50%',
+                      background: 'var(--border)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--muted)',
+                      fontSize: '0.75rem',
+                    }}
+                  >
+                    Hakuna
+                  </div>
+                )}
+                <input type="file" accept="image/*" onChange={handleLogoSelect} />
+              </div>
+              <button type="submit" className="btn btn-primary" disabled={uploading || !logoPreview}>
+                {uploading ? 'Inahifadhi...' : 'Hifadhi Picha'}
+              </button>
+            </form>
+          </div>
+        )}
 
         <div className="grid grid-2">
           <div className="card">
             <h3 style={{ color: 'var(--text)', marginBottom: 16 }}>Approval Limits</h3>
             <form onSubmit={saveLimits}>
               <div className="form-group">
-                <label>Staff limit (Tsh) – chini ya hii staff anaweza</label>
+                <label>Staff limit (Tsh)</label>
                 <input type="number" value={limits.staffLimit}
                   onChange={(e) => setLimits({ ...limits, staffLimit: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Manager limit (Tsh) – juu ya hii ni Owner</label>
+                <label>Manager limit (Tsh)</label>
                 <input type="number" value={limits.managerLimit}
                   onChange={(e) => setLimits({ ...limits, managerLimit: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Max loss % (physical count warning)</label>
+                <label>Max loss %</label>
                 <input type="number" step="0.1" value={limits.maxLossPct}
                   onChange={(e) => setLimits({ ...limits, maxLossPct: e.target.value })} />
               </div>
@@ -158,39 +258,28 @@ export default function SettingsPage() {
               </div>
               <div className="grid grid-2">
                 <div className="form-group">
-                  <label>Min Buy / Debe</label>
+                  <label>Min Buy</label>
                   <input type="number" required value={lock.minBuyPrice}
                     onChange={(e) => setLock({ ...lock, minBuyPrice: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label>Max Buy / Debe</label>
+                  <label>Max Buy</label>
                   <input type="number" required value={lock.maxBuyPrice}
                     onChange={(e) => setLock({ ...lock, maxBuyPrice: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label>Min Sell / Debe</label>
+                  <label>Min Sell</label>
                   <input type="number" required value={lock.minSellPrice}
                     onChange={(e) => setLock({ ...lock, minSellPrice: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label>Max Sell / Debe</label>
+                  <label>Max Sell</label>
                   <input type="number" required value={lock.maxSellPrice}
                     onChange={(e) => setLock({ ...lock, maxSellPrice: e.target.value })} />
                 </div>
               </div>
               <button type="submit" className="btn btn-primary">Hifadhi Price Lock</button>
             </form>
-
-            {(data?.priceLocks || []).length > 0 && (
-              <div style={{ marginTop: 20 }}>
-                <p className="muted" style={{ marginBottom: 8 }}>Zilizowekwa:</p>
-                {data.priceLocks.map((pl) => (
-                  <div key={pl.id} className="muted" style={{ fontSize: '0.85rem', marginBottom: 4 }}>
-                    {pl.crop_name}: Buy {pl.min_buy_price}–{pl.max_buy_price} | Sell {pl.min_sell_price}–{pl.max_sell_price}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
