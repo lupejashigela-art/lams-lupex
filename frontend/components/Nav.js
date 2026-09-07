@@ -2,16 +2,22 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { getUser, clearAuth } from '../lib/api';
+import { getUser, clearAuth, api } from '../lib/api';
 import { useEffect, useState } from 'react';
 
 export default function Nav() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const [logo, setLogo] = useState(null);
 
   useEffect(() => {
     setUser(getUser());
+    api('/settings')
+      .then((s) => {
+        if (s?.business?.logo_image) setLogo(s.business.logo_image);
+      })
+      .catch(() => {});
   }, []);
 
   function logout() {
@@ -43,8 +49,21 @@ export default function Nav() {
   ];
 
   return (
-    <nav className="nav" style={{ flexWrap: 'wrap', gap: 2 }}>
-      <div className="nav-brand" style={{ fontSize: '0.8rem' }}>
+    <nav className="nav" style={{ flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+      <div className="nav-brand" style={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+        {logo && (
+          <img
+            src={logo}
+            alt="Logo"
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              objectFit: 'cover',
+              border: '2px solid var(--primary, #22c55e)',
+            }}
+          />
+        )}
         <span>LAMS</span> · MR_LUPEX99
       </div>
       <div className="nav-links" style={{ flexWrap: 'wrap' }}>
