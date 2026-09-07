@@ -4,9 +4,6 @@ const { authenticate, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
-/**
- * GET /api/settings
- */
 router.get('/', authenticate, async (req, res) => {
   try {
     const settings = await db.query(`SELECT * FROM business_settings ORDER BY id LIMIT 1`);
@@ -25,10 +22,17 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-/**
- * PUT /api/settings/limits
- * Body: staffLimit, managerLimit, maxLossPct
- */
+router.get('/logo', async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT logo_image FROM business_settings ORDER BY id LIMIT 1`
+    );
+    res.json({ logo: rows[0]?.logo_image || null });
+  } catch (err) {
+    res.json({ logo: null });
+  }
+});
+
 router.put('/limits', authenticate, authorize('OWNER'), async (req, res) => {
   try {
     const { staffLimit, managerLimit, maxLossPct } = req.body;
@@ -41,11 +45,6 @@ router.put('/limits', authenticate, authorize('OWNER'), async (req, res) => {
        WHERE id = (SELECT id FROM business_settings ORDER BY id LIMIT 1)`,
       [staffLimit ?? null, managerLimit ?? null, maxLossPct ?? null]
     );
-    await db.query(
-      `INSERT INTO audit_logs (user_id, username, action, after_data)
-       VALUES ($1, $2, 'SETTINGS_LIMITS', $3)`,
-      [req.user.id, req.user.username, JSON.stringify(req.body)]
-    );
     res.json({ message: 'Limits updated' });
   } catch (err) {
     console.error(err);
@@ -53,10 +52,6 @@ router.put('/limits', authenticate, authorize('OWNER'), async (req, res) => {
   }
 });
 
-/**
- * PUT /api/settings/price-lock
- * Body: cropId, minBuyPrice, maxBuyPrice, minSellPrice, maxSellPrice
- */
 router.put('/price-lock', authenticate, authorize('OWNER', 'MANAGER'), async (req, res) => {
   try {
     const { cropId, minBuyPrice, maxBuyPrice, minSellPrice, maxSellPrice } = req.body;
@@ -79,6 +74,27 @@ router.put('/price-lock', authenticate, authorize('OWNER', 'MANAGER'), async (re
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to save price lock' });
+  }
+});
+
+router.put('/logo', authenticate, authorize('OWNER'), async (req, res) => {
+  try {
+    const { logoImage } = req.body;
+    if (!logoImage) {
+      return res.status(400).json({ error: 'logoImage required' });
+    }
+    if (logoImage.length > 700000) {
+      return res.status(400).json({ error: 'Image too large. Use a smaller photo (max ~500KB)' });
+    }
+    await db.query(
+      `UPDATE business_settings SET logo_image = $1, updated_at = NOW()
+       WHERE id = (SELECT id FROM business_settings ORDER BY id LIMIT 1)`,
+      [logoImage]
+    );
+    res.json({ message: 'Logo updated' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update logo' });
   }
 });
 
