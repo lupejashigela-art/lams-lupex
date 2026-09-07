@@ -8,67 +8,62 @@ const router = express.Router();
 
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password } = req.body || {};
+    
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password required' });
     }
 
-    const { rows } = await db.query(
-      `SELECT u.id, u.username, u.password_hash, u.full_name, u.role_id, r.name AS role
+    console.log('Login attempt for:', username);
+
+    const result = await db.query(
+      `SELECT u.id, u.username, u.password_hash, u.full_name, r.name AS role
        FROM users u
        JOIN roles r ON r.id = u.role_id
-       WHERE u.username = $1 AND u.is_active = TRUE`,
+       WHERE u.username = $1`,
       [username]
     );
 
-    if (!rows[0]) {
+    if (!result.rows || result.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const user = rows[0];
-    const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) {
+    const user = result.rows[0];
+    const match = await bcrypt.compare(password, user.password_hash);
+    
+    if (!match) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    try {
-      await db.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
-    } catch (e) {
-      console.warn('Failed to update last_login:', e.message);
-    }
-
-    const secret = process.env.JWT_SECRET || 'LupexMR99_SuperSecret_Key_2026_fallback';
+    const secret = process.env.JWT_SECRET || 'LupexMR99_fallback_secret_2026';
+    
     const token = jwt.sign(
       { userId: user.id, role: user.role },
       secret,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      { expiresIn: '7d' }
     );
 
-    try {
-      await db.query(
-        `INSERT INTO audit_logs (user_id, username, action) VALUES ($1, $2, 'LOGIN')`,
-        [user.id, user.username]
-      );
-    } catch (e) {
-      console.warn('Audit log failed:', e.message);
-    }
-
-    res.json({
+    return res.json({
       token,
       user: {
         id: user.id,
         username: user.username,
         fullName: user.full_name,
-        role: user.role,
-      },
+        role: user.role
+      }
     });
+
   } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: 'Login failed', detail: err.message });
+    console.error('LOGIN ERROR FULL:', err);
+    return res.status(500).json({ 
+      error: 'Login failed', 
+      detail: String(err.message || err),
+      stack: process.env.NODE_ENV === 'production' ? undefined : err.stack
+    });
   }
 });
 
-router.get('/me', authenticate, async (req, res) => {
+router.get('/me', authenticate, (req, res) => {
   res.json({ user: req.user });
 });
 
