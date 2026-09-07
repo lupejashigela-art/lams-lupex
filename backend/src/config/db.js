@@ -1,19 +1,24 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error('DATABASE_URL is missing!');
+}
+
 const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'lams_lupex',
-  user: process.env.DB_USER || 'lams',
-  password: process.env.DB_PASSWORD || '',
-  max: 20,
+  connectionString: connectionString,
+  ssl: {
+    rejectUnauthorized: false
+  },
+  max: 10,
   idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
 pool.on('error', (err) => {
   console.error('Unexpected DB error', err);
-  process.exit(-1);
 });
 
 module.exports = {
