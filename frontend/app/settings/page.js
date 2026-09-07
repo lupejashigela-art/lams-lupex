@@ -15,6 +15,9 @@ export default function SettingsPage() {
   const [lock, setLock] = useState({
     cropId: '', minBuyPrice: '', maxBuyPrice: '', minSellPrice: '', maxSellPrice: '',
   });
+  const [pwd, setPwd] = useState({ current: '', newPass: '', confirm: '' });
+  const [pwdMsg, setPwdMsg] = useState('');
+  const [pwdError, setPwdError] = useState('');
 
   useEffect(() => {
     if (!getUser()) { router.push('/login'); return; }
@@ -42,6 +45,7 @@ export default function SettingsPage() {
   async function saveLimits(e) {
     e.preventDefault();
     setMsg('');
+    setError('');
     try {
       await api('/settings/limits', {
         method: 'PUT',
@@ -61,6 +65,7 @@ export default function SettingsPage() {
   async function saveLock(e) {
     e.preventDefault();
     setMsg('');
+    setError('');
     try {
       await api('/settings/price-lock', {
         method: 'PUT',
@@ -79,12 +84,41 @@ export default function SettingsPage() {
     }
   }
 
+  async function changePassword(e) {
+    e.preventDefault();
+    setPwdMsg('');
+    setPwdError('');
+
+    if (pwd.newPass !== pwd.confirm) {
+      setPwdError('New password na confirm hazifanani');
+      return;
+    }
+    if (pwd.newPass.length < 4) {
+      setPwdError('Password mpya iwe angalau herufi 4');
+      return;
+    }
+
+    try {
+      await api('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          currentPassword: pwd.current,
+          newPassword: pwd.newPass,
+        }),
+      });
+      setPwdMsg('Password imebadilishwa kikamilifu');
+      setPwd({ current: '', newPass: '', confirm: '' });
+    } catch (err) {
+      setPwdError(err.message);
+    }
+  }
+
   return (
     <>
       <Nav />
       <div className="container">
         <h1 className="section-title">Settings</h1>
-        <p className="muted" style={{ marginBottom: 20 }}>Approval limits + Price lock</p>
+        <p className="muted" style={{ marginBottom: 20 }}>Approval limits + Price lock + Change Password</p>
 
         {error && <div className="alert alert-error">{error}</div>}
         {msg && <div className="alert alert-info">{msg}</div>}
@@ -158,6 +192,30 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="card" style={{ marginTop: 24, maxWidth: 480 }}>
+          <h3 style={{ color: 'var(--text)', marginBottom: 16 }}>Badilisha Password</h3>
+          {pwdError && <div className="alert alert-error">{pwdError}</div>}
+          {pwdMsg && <div className="alert alert-info">{pwdMsg}</div>}
+          <form onSubmit={changePassword}>
+            <div className="form-group">
+              <label>Password ya sasa</label>
+              <input type="password" required value={pwd.current}
+                onChange={(e) => setPwd({ ...pwd, current: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label>Password mpya</label>
+              <input type="password" required value={pwd.newPass}
+                onChange={(e) => setPwd({ ...pwd, newPass: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label>Thibitisha password mpya</label>
+              <input type="password" required value={pwd.confirm}
+                onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })} />
+            </div>
+            <button type="submit" className="btn btn-primary">Badilisha Password</button>
+          </form>
         </div>
       </div>
     </>
