@@ -81,4 +81,152 @@ export default function PurchasesPage() {
           pricePerDebe: parseFloat(form.pricePerDebe),
           transportCost: parseFloat(form.transportCost) || 0,
           loadingCost: parseFloat(form.loadingCost) || 0,
+          otherCost: parseFloat(form.otherCost) || 0,
+          paidAmount: parseFloat(form.paidAmount) || 0,
+        }),
+      });
+      setMsg(res.message || 'Purchase saved');
+      setShowForm(false);
+      setUseNewFarmer(false);
+      setNewFarmerName('');
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
+  return (
+    <>
+      <Nav />
+      <div className="container">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div>
+            <h1 className="section-title" style={{ marginBottom: 4 }}>Manunuzi</h1>
+            <p className="muted">Purchases from farmers</p>
+          </div>
+          <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+            {showForm ? 'Funga' : '+ Manunuzi mapya'}
+          </button>
+        </div>
+
+        {error && <div className="alert alert-error">{error}</div>}
+        {msg && <div className="alert alert-info">{msg}</div>}
+
+        {showForm && (
+          <div className="card" style={{ marginBottom: 24 }}>
+            <form onSubmit={submit}>
+              <div className="grid grid-2">
+                <div className="form-group">
+                  <label>Mkulima (Farmer)</label>
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer' }}>
+                      <input type="radio" checked={!useNewFarmer} onChange={() => setUseNewFarmer(false)} />
+                      Chagua kutoka list
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer', marginTop: 4 }}>
+                      <input type="radio" checked={useNewFarmer} onChange={() => setUseNewFarmer(true)} />
+                      Andika jina jipya
+                    </label>
+                  </div>
+                  {!useNewFarmer ? (
+                    <select
+                      value={form.farmerId}
+                      onChange={(e) => setForm({ ...form, farmerId: e.target.value })}
+                      style={{ width: '100%', padding: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}
+                    >
+                      <option value="">-- Chagua mkulima --</option>
+                      {farmers.map((f) => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Jina la mkulima"
+                      value={newFarmerName}
+                      onChange={(e) => setNewFarmerName(e.target.value)}
+                      required
+                    />
+                  )}
+                </div>
+                <div className="form-group">
+                  <label>Zao</label>
+                  <select
+                    value={form.cropId}
+                    onChange={(e) => setForm({ ...form, cropId: e.target.value })}
+                    style={{ width: '100%', padding: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}
+                  >
+                    {crops.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Gunia</label>
+                  <input type="number" step="1" value={form.gunia} onChange={(e) => setForm({ ...form, gunia: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Debe za ziada</label>
+                  <input type="number" step="0.01" value={form.debeExtra} onChange={(e) => setForm({ ...form, debeExtra: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Bei / Debe (Tsh)</label>
+                  <input type="number" required value={form.pricePerDebe} onChange={(e) => setForm({ ...form, pricePerDebe: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Usafiri</label>
+                  <input type="number" value={form.transportCost} onChange={(e) => setForm({ ...form, transportCost: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Kupakia</label>
+                  <input type="number" value={form.loadingCost} onChange={(e) => setForm({ ...form, loadingCost: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Nyingine</label>
+                  <input type="number" value={form.otherCost} onChange={(e) => setForm({ ...form, otherCost: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Nimelipa (Tsh)</label>
+                  <input type="number" value={form.paidAmount} onChange={(e) => setForm({ ...form, paidAmount: e.target.value })} />
+                </div>
+              </div>
+              <button type="submit" className="btn btn-primary">Hifadhi Manunuzi</button>
+            </form>
+          </div>
+        )}
+
+        <div className="card">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Tarehe</th>
+                <th>Mkulima</th>
+                <th>Zao</th>
+                <th>Kiasi</th>
+                <th>Jumla</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((p) => (
+                <tr key={p.id}>
+                  <td>{p.purchase_code}</td>
+                  <td>{p.date?.slice?.(0, 10) || p.date}</td>
+                  <td>{p.farmer_name}</td>
+                  <td>{p.crop_name}</td>
+                  <td>{Number(p.qty_debe).toFixed(0)} Debe</td>
+                  <td>{formatMoney(p.total_cost)}</td>
+                  <td>
+                    <span className={`badge ${p.status === 'COMPLETED' ? 'badge-green' : p.status === 'PENDING' ? 'badge-yellow' : 'badge-red'}`}>
+                      {p.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {list.length === 0 && <p className="muted" style={{ padding: 12 }}>Hakuna manunuzi bado.</p>}
+        </div>
+      </div>
+    </>
+  );
+}
