@@ -17,6 +17,8 @@ export default function SalesPage() {
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
+  const [useNewBuyer, setUseNewBuyer] = useState(false);
+  const [newBuyerName, setNewBuyerName] = useState('');
   const [form, setForm] = useState({
     buyerId: '', cropId: '', mode: 'DEBE',
     gunia: '', debeExtra: '', totalKg: '', pricePerUnit: '',
@@ -50,11 +52,31 @@ export default function SalesPage() {
     setError('');
     setMsg('');
     const qtyDebe = (parseFloat(form.gunia) || 0) * 6 + (parseFloat(form.debeExtra) || 0);
+
     try {
+      let buyerId = form.buyerId;
+
+      if (useNewBuyer) {
+        if (!newBuyerName.trim()) {
+          setError('Andika jina la buyer');
+          return;
+        }
+        const created = await api('/buyers', {
+          method: 'POST',
+          body: JSON.stringify({ name: newBuyerName.trim() }),
+        });
+        buyerId = created.id;
+      }
+
+      if (!buyerId) {
+        setError('Chagua au andika jina la buyer');
+        return;
+      }
+
       const res = await api('/sales', {
         method: 'POST',
         body: JSON.stringify({
-          buyerId: form.buyerId,
+          buyerId,
           cropId: parseInt(form.cropId, 10),
           mode: form.mode,
           qtyDebe,
@@ -67,6 +89,8 @@ export default function SalesPage() {
       });
       setMsg(res.message || 'Sale saved');
       setShowForm(false);
+      setUseNewBuyer(false);
+      setNewBuyerName('');
       load();
     } catch (err) {
       setError(err.message);
@@ -83,7 +107,7 @@ export default function SalesPage() {
             <p className="muted">Sales to buyers</p>
           </div>
           <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-            + Ongeza Mauzo
+            {showForm ? 'Funga' : '+ Mauzo mapya'}
           </button>
         </div>
 
@@ -96,25 +120,56 @@ export default function SalesPage() {
               <div className="grid grid-2">
                 <div className="form-group">
                   <label>Buyer (Boss)</label>
-                  <select value={form.buyerId} onChange={(e) => setForm({ ...form, buyerId: e.target.value })}
-                    style={{ width: '100%', padding: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} required>
-                    {buyers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer' }}>
+                      <input type="radio" checked={!useNewBuyer} onChange={() => setUseNewBuyer(false)} />
+                      Chagua kutoka list
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer', marginTop: 4 }}>
+                      <input type="radio" checked={useNewBuyer} onChange={() => setUseNewBuyer(true)} />
+                      Andika jina jipya
+                    </label>
+                  </div>
+                  {!useNewBuyer ? (
+                    <select
+                      value={form.buyerId}
+                      onChange={(e) => setForm({ ...form, buyerId: e.target.value })}
+                      style={{ width: '100%', padding: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}
+                    >
+                      <option value="">-- Chagua buyer --</option>
+                      {buyers.map((b) => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Jina la buyer"
+                      value={newBuyerName}
+                      onChange={(e) => setNewBuyerName(e.target.value)}
+                      required
+                    />
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Zao</label>
-                  <select value={form.cropId} onChange={(e) => setForm({ ...form, cropId: e.target.value })}
-                    style={{ width: '100%', padding: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}>
+                  <select
+                    value={form.cropId}
+                    onChange={(e) => setForm({ ...form, cropId: e.target.value })}
+                    style={{ width: '100%', padding: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}
+                  >
                     {crops.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label>Mode</label>
-                  <select value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value })}
-                    style={{ width: '100%', padding: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}>
-                    <option value="DEBE">DEBE</option>
-                    <option value="KILO">KILO</option>
-                    <option value="KOBOA">KOBOA</option>
+                  <select
+                    value={form.mode}
+                    onChange={(e) => setForm({ ...form, mode: e.target.value })}
+                    style={{ width: '100%', padding: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}
+                  >
+                    <option value="DEBE">Debe</option>
+                    <option value="KG">Kilo</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -122,12 +177,12 @@ export default function SalesPage() {
                   <input type="number" value={form.gunia} onChange={(e) => setForm({ ...form, gunia: e.target.value })} />
                 </div>
                 <div className="form-group">
-                  <label>Debe (zaidi)</label>
+                  <label>Debe za ziada</label>
                   <input type="number" step="0.01" value={form.debeExtra} onChange={(e) => setForm({ ...form, debeExtra: e.target.value })} />
                 </div>
-                {(form.mode === 'KILO' || form.mode === 'KOBOA') && (
+                {form.mode === 'KG' && (
                   <div className="form-group">
-                    <label>Jumla Kilo</label>
+                    <label>Jumla ya Kilo</label>
                     <input type="number" step="0.01" value={form.totalKg} onChange={(e) => setForm({ ...form, totalKg: e.target.value })} />
                   </div>
                 )}
@@ -135,7 +190,7 @@ export default function SalesPage() {
                   <label>Bei / Unit (Tsh)</label>
                   <input type="number" required value={form.pricePerUnit} onChange={(e) => setForm({ ...form, pricePerUnit: e.target.value })} />
                 </div>
-                {form.mode === 'KOBOA' && (
+                {form.mode === 'KG' && (
                   <div className="form-group">
                     <label>Gharama Koboa / Kilo</label>
                     <input type="number" value={form.millingCostPerKg} onChange={(e) => setForm({ ...form, millingCostPerKg: e.target.value })} />
@@ -147,8 +202,11 @@ export default function SalesPage() {
                 </div>
                 <div className="form-group">
                   <label>Due days (kama deni)</label>
-                  <select value={form.dueDays} onChange={(e) => setForm({ ...form, dueDays: e.target.value })}
-                    style={{ width: '100%', padding: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}>
+                  <select
+                    value={form.dueDays}
+                    onChange={(e) => setForm({ ...form, dueDays: e.target.value })}
+                    style={{ width: '100%', padding: 10, background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }}
+                  >
                     <option value="7">7 siku</option>
                     <option value="14">14 siku</option>
                     <option value="30">30 siku</option>
