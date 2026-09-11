@@ -5,9 +5,6 @@ const { nextCode } = require('../services/stockService');
 
 const router = express.Router();
 
-/**
- * GET /api/payments
- */
 router.get('/', authenticate, async (req, res) => {
   try {
     const { rows } = await db.query(`
@@ -29,16 +26,11 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-/**
- * POST /api/payments
- * type: SUPPLIER (pay farmer) | CUSTOMER (receive from buyer)
- * Body: paymentType, farmerId?, buyerId?, purchaseId?, saleId?, amount, method, notes
- */
 router.post('/', authenticate, authorize('OWNER', 'MANAGER', 'ACCOUNTANT', 'SALES'), async (req, res) => {
   const client = await db.pool.connect();
   try {
-    const {
-      paymentType, // SUPPLIER | CUSTOMER
+    let {
+      paymentType,
       farmerId,
       buyerId,
       purchaseId,
@@ -63,26 +55,41 @@ router.post('/', authenticate, authorize('OWNER', 'MANAGER', 'ACCOUNTANT', 'SALE
 
     await client.query('BEGIN');
 
-    // Update purchase/sale balance
+    // Chukua farmer_id kutoka purchase
     if (paymentType === 'SUPPLIER' && purchaseId) {
-      const p = await client.query(`SELECT balance, paid_amount FROM purchases WHERE id = $1`, [purchaseId]);
+      const p = await client.query(
+        `SELECT balance, paid_amount, farmer_id FROM purchases WHERE id = $1`,
+        [purchaseId]
+      );
       if (!p.rows[0]) throw new Error('Purchase not found');
+      if (!farmerId) farmerId = p.rows[0].farmer_id;
+
       const bal = parseFloat(p.rows[0].balance);
       const pay = Math.min(amt, bal);
       await client.query(
-        `UPDATE purchases SET paid_amount = paid_amount + $1, balance = balance - $1, updated_at = NOW()
+        `UPDATE purchases SET paid_amount = paid_amount + $1, balance = balance - $1,
+          status = CASE WHEN balance - $1 <= 0.5 THEN 'COMPLETED' ELSE status END,
+          updated_at = NOW()
          WHERE id = $2`,
         [pay, purchaseId]
       );
     }
 
+    // Chukua buyer_id kutoka sale
     if (paymentType === 'CUSTOMER' && saleId) {
-      const s = await client.query(`SELECT balance, received_amount FROM sales WHERE id = $1`, [saleId]);
+      const s = await client.query(
+        `SELECT balance, received_amount, buyer_id FROM sales WHERE id = $1`,
+        [saleId]
+      );
       if (!s.rows[0]) throw new Error('Sale not found');
+      if (!buyerId) buyerId = s.rows[0].buyer_id;
+
       const bal = parseFloat(s.rows[0].balance);
       const rec = Math.min(amt, bal);
       await client.query(
-        `UPDATE sales SET received_amount = received_amount + $1, balance = balance - $1, updated_at = NOW()
+        `UPDATE sales SET received_amount = received_amount + $1, balance = balance - $1,
+          status = CASE WHEN balance - $1 <= 0.5 THEN 'COMPLETED' ELSE status END,
+          updated_at = NOW()
          WHERE id = $2`,
         [rec, saleId]
       );
