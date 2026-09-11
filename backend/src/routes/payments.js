@@ -55,7 +55,6 @@ router.post('/', authenticate, authorize('OWNER', 'MANAGER', 'ACCOUNTANT', 'SALE
 
     await client.query('BEGIN');
 
-    // Chukua farmer_id kutoka purchase
     if (paymentType === 'SUPPLIER' && purchaseId) {
       const p = await client.query(
         `SELECT balance, paid_amount, farmer_id FROM purchases WHERE id = $1`,
@@ -75,7 +74,6 @@ router.post('/', authenticate, authorize('OWNER', 'MANAGER', 'ACCOUNTANT', 'SALE
       );
     }
 
-    // Chukua buyer_id kutoka sale
     if (paymentType === 'CUSTOMER' && saleId) {
       const s = await client.query(
         `SELECT balance, received_amount, buyer_id FROM sales WHERE id = $1`,
@@ -127,6 +125,50 @@ router.post('/', authenticate, authorize('OWNER', 'MANAGER', 'ACCOUNTANT', 'SALE
     await client.query('ROLLBACK');
     console.error(err);
     res.status(500).json({ error: err.message || 'Failed to record payment' });
+  } finally {
+    client.release();
+  }
+});
+
+router.delete('/:id', authenticate, authorize('OWNER', 'MANAGER'), async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(`SELECT * FROM payments WHERE id = $1`, [req.params.id]);
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+    const pay = rows[0];
+    const amt = parseFloat(pay.amount);
+
+    if (pay.payment_type === 'SUPPLIER' && pay.purchase_id) {
+      await client.query(
+        `UPDATE purchases SET paid_amount = GREATEST(0, paid_amount - $1),
+          balance = balance + $1, updated_at = NOW() WHERE id = $2`,
+        [amt, pay.purchase_id]
+      );
+    }
+    if (pay.payment_type === 'CUSTOMER' && pay.sale_id) {
+      await client.query(
+        `UPDATE sales SET received_amount = GREATEST(0, received_amount - $1),
+          balance = balance + $1, updated_at = NOW() WHERE id = $2`,
+        [amt, pay.sale_id]
+      );
+    }
+
+    await client.query(`DELETE FROM payments WHERE id = $1`, [req.params.id]);
+    await client.query(
+      `INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, after_data)
+       VALUES ($1,$2,'PAYMENT_DELETE','payment',$3,$4)`,
+      [req.user.id, req.user.username, pay.id, JSON.stringify(pay)]
+    );
+    await client.query('COMMIT');
+    res.json({ message: 'Payment deleted' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: err.message || 'Failed to delete payment' });
   } finally {
     client.release();
   }
