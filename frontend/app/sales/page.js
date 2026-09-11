@@ -72,9 +72,7 @@ export default function SalesPage() {
 
   function calcTotal() {
     const price = parseFloat(form.pricePerUnit) || 0;
-    if (form.mode === 'KG') {
-      return (parseFloat(form.totalKg) || 0) * price;
-    }
+    if (form.mode === 'KG') return (parseFloat(form.totalKg) || 0) * price;
     return calcQty() * price;
   }
 
@@ -109,10 +107,8 @@ export default function SalesPage() {
     setError('');
     setMsg('');
     setSaving(true);
-
     try {
       let buyerId = form.buyerId;
-
       if (useNewBuyer) {
         if (!newBuyerName.trim()) {
           setError('Andika jina la buyer');
@@ -125,17 +121,15 @@ export default function SalesPage() {
         });
         buyerId = created.id;
       }
-
       if (!buyerId) {
         setError('Chagua au andika jina la buyer');
         setSaving(false);
         return;
       }
 
-      // Stock check
       const available = getStockForCrop(form.cropId);
       const need = form.mode === 'KG' ? (parseFloat(form.totalKg) || 0) / 15 : calcQty();
-      if (available < need && available >= 0) {
+      if (available > 0 && available < need) {
         const ok = window.confirm(
           `Stock ina debe ~${available.toFixed(0)} tu. Unajaribu kuuza zaidi. Endelea hata hivyo?`
         );
@@ -148,7 +142,7 @@ export default function SalesPage() {
       const total = calcTotal();
       const received = form.payMode === 'full' ? total : (parseFloat(form.receivedAmount) || 0);
 
-      const res = await api('/sales', {
+      await api('/sales', {
         method: 'POST',
         body: JSON.stringify({
           buyerId,
@@ -162,7 +156,7 @@ export default function SalesPage() {
           dueDays: parseInt(form.dueDays, 10) || 7,
         }),
       });
-      setMsg(res.message || 'Mauzo yamehifadhiwa');
+      setMsg('Mauzo yamehifadhiwa');
       setShowForm(false);
       resetForm();
       load();
@@ -184,6 +178,10 @@ export default function SalesPage() {
     if (step === 2) return form.cropId;
     if (step === 3) return form.mode === 'KG' ? parseFloat(form.totalKg) > 0 : calcQty() > 0;
     if (step === 4) return parseFloat(form.pricePerUnit) > 0;
+    if (step === 5) {
+      if (form.payMode === 'partial') return parseFloat(form.receivedAmount) >= 0;
+      return true;
+    }
     return true;
   }
 
@@ -316,27 +314,36 @@ export default function SalesPage() {
               {step === 5 && (
                 <div>
                   <h3 style={{ marginBottom: 12, color: 'var(--text)' }}>5. Malipo</h3>
-                  <p className="muted" style={{ marginBottom: 12 }}>Jumla: {formatMoney(calcTotal())}</p>
-                  <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 8 }}>
+                  <p style={{ marginBottom: 12 }}>
+                    <strong>Jumla ya mauzo:</strong> {formatMoney(calcTotal())}
+                  </p>
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 10 }}>
                       <input type="radio" checked={form.payMode === 'full'}
                         onChange={() => setForm({ ...form, payMode: 'full', receivedAmount: '' })} />
-                      Amelipa yote
+                      <span>Amelipa yote ({formatMoney(calcTotal())})</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                       <input type="radio" checked={form.payMode === 'partial'}
                         onChange={() => setForm({ ...form, payMode: 'partial' })} />
-                      Amelipa kiasi
+                      <span>Amelipa kiasi (deni / incomplete)</span>
                     </label>
                   </div>
                   {form.payMode === 'partial' && (
-                    <>
+                    <div>
                       <div className="form-group">
                         <label>Kiasi alicholipa (Tsh)</label>
                         <input type="number" required value={form.receivedAmount}
-                          onChange={(e) => setForm({ ...form, receivedAmount: e.target.value })} />
+                          onChange={(e) => setForm({ ...form, receivedAmount: e.target.value })}
+                          placeholder="Andika kiasi" />
                       </div>
-                      <div className="form-group">
+                      <p style={{ marginTop: 8 }}>
+                        <strong>Kilichobaki (anadaiwa):</strong>{' '}
+                        <span style={{ color: '#eab308' }}>
+                          {formatMoney(Math.max(0, calcTotal() - (parseFloat(form.receivedAmount) || 0)))}
+                        </span>
+                      </p>
+                      <div className="form-group" style={{ marginTop: 12 }}>
                         <label>Due days (siku za deni)</label>
                         <select value={form.dueDays}
                           onChange={(e) => setForm({ ...form, dueDays: e.target.value })}
@@ -346,7 +353,7 @@ export default function SalesPage() {
                           <option value="30">30 siku</option>
                         </select>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               )}
@@ -361,10 +368,10 @@ export default function SalesPage() {
                     <p><strong>Kiasi:</strong> {form.mode === 'KG' ? `${form.totalKg} Kg` : `${calcQty().toFixed(1)} Debe`}</p>
                     <p><strong>Bei:</strong> {form.pricePerUnit} Tsh</p>
                     <p><strong>Jumla:</strong> {formatMoney(calcTotal())}</p>
-                    <p><strong>Malipo:</strong> {form.payMode === 'full' ? 'Yote' : formatMoney(form.receivedAmount)}</p>
+                    <p><strong>Malipo:</strong> {form.payMode === 'full' ? `Yote (${formatMoney(calcTotal())})` : formatMoney(form.receivedAmount)}</p>
                     {form.payMode === 'partial' && (
                       <p style={{ color: '#eab308' }}>
-                        <strong>Deni:</strong> {formatMoney(calcTotal() - (parseFloat(form.receivedAmount) || 0))}
+                        <strong>Deni:</strong> {formatMoney(Math.max(0, calcTotal() - (parseFloat(form.receivedAmount) || 0)))}
                       </p>
                     )}
                   </div>
