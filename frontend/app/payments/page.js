@@ -10,7 +10,7 @@ function formatMoney(n) {
 }
 
 const emptyForm = {
-  paymentType: 'CUSTOMER', // CUSTOMER = kupokea kutoka buyer | SUPPLIER = kulipa mkulima
+  paymentType: 'CUSTOMER',
   debtId: '',
   payMode: 'full',
   amount: '',
@@ -57,7 +57,6 @@ export default function PaymentsPage() {
     setMsg('');
   }
 
-  // Orodha ya madeni kulingana na aina
   function debtOptions() {
     if (!debts) return [];
     if (form.paymentType === 'SUPPLIER') {
@@ -89,6 +88,19 @@ export default function PaymentsPage() {
   function remaining() {
     if (form.payMode === 'full') return 0;
     return Math.max(0, outstanding() - (parseFloat(form.amount) || 0));
+  }
+
+  async function handleDelete(p) {
+    const name = p.farmer_name || p.buyer_name || p.payment_code;
+    if (!window.confirm(`Futa malipo "${name}" – ${formatMoney(p.amount)}?\nDeni litarudishwa.`)) return;
+    setError('');
+    try {
+      await api(`/payments/${p.id}`, { method: 'DELETE' });
+      setMsg('Malipo yamefutwa');
+      load();
+    } catch (err) {
+      setError(err.message);
+    }
   }
 
   async function submit(e) {
@@ -166,7 +178,6 @@ export default function PaymentsPage() {
         {showForm && (
           <div className="card" style={{ marginBottom: 24, maxWidth: 520 }}>
             <form onSubmit={submit}>
-              {/* Aina */}
               <div className="form-group">
                 <label>Aina ya malipo</label>
                 <select
@@ -179,7 +190,6 @@ export default function PaymentsPage() {
                 </select>
               </div>
 
-              {/* Chagua deni */}
               <div className="form-group">
                 <label>
                   {form.paymentType === 'CUSTOMER' ? 'Chagua deni la Buyer' : 'Chagua deni la Mkulima'}
@@ -204,7 +214,6 @@ export default function PaymentsPage() {
                 )}
               </div>
 
-              {/* Kiasi kinachodaiwa */}
               {form.debtId && (
                 <div style={{
                   background: 'var(--bg)',
@@ -227,7 +236,6 @@ export default function PaymentsPage() {
                 </div>
               )}
 
-              {/* Kulipa yote / kiasi */}
               {form.debtId && (
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 10 }}>
@@ -317,6 +325,7 @@ export default function PaymentsPage() {
                 <th>Jina</th>
                 <th>Kiasi</th>
                 <th>Njia</th>
+                <th>Vitendo</th>
               </tr>
             </thead>
             <tbody>
@@ -328,6 +337,15 @@ export default function PaymentsPage() {
                   <td>{p.farmer_name || p.buyer_name || '—'}</td>
                   <td>{formatMoney(p.amount)}</td>
                   <td>{p.method}</td>
+                  <td>
+                    <button
+                      className="btn btn-ghost"
+                      style={{ padding: '2px 8px', fontSize: '0.75rem', color: '#ef4444' }}
+                      onClick={() => handleDelete(p)}
+                    >
+                      Futa
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
