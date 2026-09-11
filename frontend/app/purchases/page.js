@@ -87,9 +87,8 @@ export default function PurchasesPage() {
     return c?.name || '—';
   }
 
-  // Default bei ya mwisho kwa zao
   function applyLastPrice(cropId) {
-    const recent = list.find((p) => String(p.crop_id) === String(cropId) || p.crop_name);
+    const recent = list.find((p) => String(p.crop_id) === String(cropId));
     if (recent && recent.price_per_debe) {
       setForm((f) => ({ ...f, cropId, pricePerDebe: String(recent.price_per_debe) }));
     } else {
@@ -102,10 +101,8 @@ export default function PurchasesPage() {
     setError('');
     setMsg('');
     setSaving(true);
-
     try {
       let farmerId = form.farmerId;
-
       if (useNewFarmer) {
         if (!newFarmerName.trim()) {
           setError('Andika jina la mkulima');
@@ -118,17 +115,14 @@ export default function PurchasesPage() {
         });
         farmerId = created.id;
       }
-
       if (!farmerId) {
         setError('Chagua au andika jina la mkulima');
         setSaving(false);
         return;
       }
-
       const total = calcTotal();
       const paid = form.payMode === 'full' ? total : (parseFloat(form.paidAmount) || 0);
-
-      const res = await api('/purchases', {
+      await api('/purchases', {
         method: 'POST',
         body: JSON.stringify({
           farmerId,
@@ -141,7 +135,7 @@ export default function PurchasesPage() {
           paidAmount: paid,
         }),
       });
-      setMsg(res.message || 'Manunuzi yamehifadhiwa');
+      setMsg('Manunuzi yamehifadhiwa');
       setShowForm(false);
       resetForm();
       load();
@@ -163,6 +157,10 @@ export default function PurchasesPage() {
     if (step === 2) return form.cropId;
     if (step === 3) return calcQty() > 0;
     if (step === 4) return parseFloat(form.pricePerDebe) > 0;
+    if (step === 5) {
+      if (form.payMode === 'partial') return parseFloat(form.paidAmount) >= 0;
+      return true;
+    }
     return true;
   }
 
@@ -283,24 +281,35 @@ export default function PurchasesPage() {
               {step === 5 && (
                 <div>
                   <h3 style={{ marginBottom: 12, color: 'var(--text)' }}>5. Malipo</h3>
-                  <p className="muted" style={{ marginBottom: 12 }}>Jumla: {formatMoney(calcTotal())}</p>
-                  <div style={{ marginBottom: 12 }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 8 }}>
+                  <p style={{ marginBottom: 12 }}>
+                    <strong>Jumla ya gharama:</strong> {formatMoney(calcTotal())}
+                  </p>
+                  <div style={{ marginBottom: 16 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 10 }}>
                       <input type="radio" checked={form.payMode === 'full'}
                         onChange={() => setForm({ ...form, payMode: 'full', paidAmount: '' })} />
-                      Nmelipa yote
+                      <span>Nmelipa yote ({formatMoney(calcTotal())})</span>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                       <input type="radio" checked={form.payMode === 'partial'}
                         onChange={() => setForm({ ...form, payMode: 'partial' })} />
-                      Nmelipa kiasi
+                      <span>Nmelipa kiasi (deni / incomplete)</span>
                     </label>
                   </div>
                   {form.payMode === 'partial' && (
-                    <div className="form-group">
-                      <label>Kiasi nilicholipa (Tsh)</label>
-                      <input type="number" required value={form.paidAmount}
-                        onChange={(e) => setForm({ ...form, paidAmount: e.target.value })} />
+                    <div>
+                      <div className="form-group">
+                        <label>Kiasi nilicholipa (Tsh)</label>
+                        <input type="number" required value={form.paidAmount}
+                          onChange={(e) => setForm({ ...form, paidAmount: e.target.value })}
+                          placeholder="Andika kiasi" />
+                      </div>
+                      <p style={{ marginTop: 8 }}>
+                        <strong>Kilichobaki (deni):</strong>{' '}
+                        <span style={{ color: '#eab308' }}>
+                          {formatMoney(Math.max(0, calcTotal() - (parseFloat(form.paidAmount) || 0)))}
+                        </span>
+                      </p>
                     </div>
                   )}
                 </div>
@@ -315,9 +324,11 @@ export default function PurchasesPage() {
                     <p><strong>Kiasi:</strong> {calcQty().toFixed(1)} Debe</p>
                     <p><strong>Bei/Debe:</strong> {form.pricePerDebe} Tsh</p>
                     <p><strong>Jumla:</strong> {formatMoney(calcTotal())}</p>
-                    <p><strong>Malipo:</strong> {form.payMode === 'full' ? 'Yote' : formatMoney(form.paidAmount)}</p>
+                    <p><strong>Malipo:</strong> {form.payMode === 'full' ? `Yote (${formatMoney(calcTotal())})` : formatMoney(form.paidAmount)}</p>
                     {form.payMode === 'partial' && (
-                      <p style={{ color: '#eab308' }}><strong>Deni:</strong> {formatMoney(calcTotal() - (parseFloat(form.paidAmount) || 0))}</p>
+                      <p style={{ color: '#eab308' }}>
+                        <strong>Deni:</strong> {formatMoney(Math.max(0, calcTotal() - (parseFloat(form.paidAmount) || 0)))}
+                      </p>
                     )}
                   </div>
                 </div>
