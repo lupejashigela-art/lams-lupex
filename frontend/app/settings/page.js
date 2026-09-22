@@ -333,3 +333,26 @@ export default function SettingsPage() {
                 Futa pia wakulima na buyers wa majaribio
               </label>
               <div className="form-group">
+                <label>Andika <strong>RESET</strong> kuthibitisha</label>
+                <input
+                  value={resetConfirm}
+                  onChange={(e) => setResetConfirm(e.target.value)}
+                  placeholder="RESET"
+                  autoComplete="off"
+                />
+              </div>
+              <button
+                type="submit"
+                className="btn"
+                disabled={resetting || resetConfirm !== 'RESET'}
+                style={{ background: '#ef4444', color: '#fff', border: 'none' }}
+              >
+                {resetting ? 'Inafuta...' : 'Futa Taarifa Zote za Majaribio'}
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
