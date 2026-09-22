@@ -1,9 +1,8 @@
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 
-/**
- * Verify JWT and attach user to req.user
- */
+const JWT_SECRET = process.env.JWT_SECRET || 'LupexMR99_SuperSecret_Key_2026_fallback';
+
 async function authenticate(req, res, next) {
   try {
     const header = req.headers.authorization;
@@ -11,7 +10,7 @@ async function authenticate(req, res, next) {
       return res.status(401).json({ error: 'Token required' });
     }
     const token = header.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
 
     const { rows } = await db.query(
       `SELECT u.id, u.username, u.full_name, u.role_id, r.name AS role
@@ -32,10 +31,6 @@ async function authenticate(req, res, next) {
   }
 }
 
-/**
- * Check if user has one of the allowed roles
- * usage: authorize('OWNER', 'MANAGER')
- */
 function authorize(...roles) {
   return (req, res, next) => {
     if (!req.user) {
