@@ -22,6 +22,11 @@ export default function SettingsPage() {
   const [logoMsg, setLogoMsg] = useState('');
   const [logoError, setLogoError] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState('');
+  const [clearPeople, setClearPeople] = useState(true);
+  const [resetting, setResetting] = useState(false);
+  const [resetMsg, setResetMsg] = useState('');
+  const [resetError, setResetError] = useState('');
 
   const user = typeof window !== 'undefined' ? getUser() : null;
   const isOwner = user?.role === 'OWNER';
@@ -124,20 +129,16 @@ export default function SettingsPage() {
     if (!file) return;
     setLogoError('');
     setLogoMsg('');
-
     if (!file.type.startsWith('image/')) {
-      setLogoError('Chagua picha tu (JPG, PNG, n.k.)');
+      setLogoError('Chagua picha tu (JPG, PNG)');
       return;
     }
     if (file.size > 400000) {
-      setLogoError('Picha ni kubwa. Tumia picha chini ya 400KB');
+      setLogoError('Picha ni kubwa. Tumia chini ya 400KB');
       return;
     }
-
     const reader = new FileReader();
-    reader.onload = () => {
-      setLogoPreview(reader.result);
-    };
+    reader.onload = () => setLogoPreview(reader.result);
     reader.readAsDataURL(file);
   }
 
@@ -155,11 +156,37 @@ export default function SettingsPage() {
         method: 'PUT',
         body: JSON.stringify({ logoImage: logoPreview }),
       });
-      setLogoMsg('Picha imehifadhiwa! Refresh ukurasa uione kwenye Nav.');
+      setLogoMsg('Picha imehifadhiwa! Refresh ukurasa.');
     } catch (err) {
       setLogoError(err.message);
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function handleReset(e) {
+    e.preventDefault();
+    setResetError('');
+    setResetMsg('');
+    if (resetConfirm !== 'RESET') {
+      setResetError('Andika neno RESET (herufi kubwa) ili kuthibitisha');
+      return;
+    }
+    if (!window.confirm('UNA UHAKIKA? Manunuzi, mauzo, malipo, stock zitaFUTWA. Huwezi kurudisha.')) {
+      return;
+    }
+    setResetting(true);
+    try {
+      const res = await api('/settings/reset-data', {
+        method: 'POST',
+        body: JSON.stringify({ confirm: 'RESET', clearPeople }),
+      });
+      setResetMsg(res.message || 'Reset imefanikiwa');
+      setResetConfirm('');
+    } catch (err) {
+      setResetError(err.message);
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -169,7 +196,7 @@ export default function SettingsPage() {
       <div className="container">
         <h1 className="section-title">Settings</h1>
         <p className="muted" style={{ marginBottom: 20 }}>
-          Approval limits · Price lock · Password · Logo
+          Limits · Price lock · Logo · Password · Reset
         </p>
 
         {error && <div className="alert alert-error">{error}</div>}
@@ -178,41 +205,20 @@ export default function SettingsPage() {
         {isOwner && (
           <div className="card" style={{ marginBottom: 24, maxWidth: 480 }}>
             <h3 style={{ color: 'var(--text)', marginBottom: 16 }}>Picha ya Biashara (Logo)</h3>
-            <p className="muted" style={{ marginBottom: 12, fontSize: '0.85rem' }}>
-              Picha hii itaonekana kwa users wote juu kwenye menu.
-            </p>
             {logoError && <div className="alert alert-error">{logoError}</div>}
             {logoMsg && <div className="alert alert-info">{logoMsg}</div>}
             <form onSubmit={saveLogo}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
                 {logoPreview ? (
-                  <img
-                    src={logoPreview}
-                    alt="Preview"
-                    style={{
-                      width: 80,
-                      height: 80,
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '3px solid var(--primary, #22c55e)',
-                    }}
-                  />
+                  <img src={logoPreview} alt="Logo" style={{
+                    width: 80, height: 80, borderRadius: '50%', objectFit: 'cover',
+                    border: '3px solid var(--primary, #22c55e)',
+                  }} />
                 ) : (
-                  <div
-                    style={{
-                      width: 80,
-                      height: 80,
-                      borderRadius: '50%',
-                      background: 'var(--border)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: 'var(--muted)',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    Hakuna
-                  </div>
+                  <div style={{
+                    width: 80, height: 80, borderRadius: '50%', background: 'var(--border)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem',
+                  }}>Hakuna</div>
                 )}
                 <input type="file" accept="image/*" onChange={handleLogoSelect} />
               </div>
@@ -306,7 +312,24 @@ export default function SettingsPage() {
             <button type="submit" className="btn btn-primary">Badilisha Password</button>
           </form>
         </div>
-      </div>
-    </>
-  );
-}
+
+        {isOwner && (
+          <div className="card" style={{ marginTop: 24, maxWidth: 520, border: '1px solid #ef4444' }}>
+            <h3 style={{ color: '#ef4444', marginBottom: 8 }}>Reset Taarifa (Anza Rasmi)</h3>
+            <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 12 }}>
+              Inafuta: manunuzi, mauzo, malipo, stock, lots, gharama, audit.
+              <br />
+              <strong>Haifuti:</strong> owner/manager, settings, crops.
+            </p>
+            {resetError && <div className="alert alert-error">{resetError}</div>}
+            {resetMsg && <div className="alert alert-info">{resetMsg}</div>}
+            <form onSubmit={handleReset}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={clearPeople}
+                  onChange={(e) => setClearPeople(e.target.checked)}
+                />
+                Futa pia wakulima na buyers wa majaribio
+              </label>
+              <div className="form-group">
