@@ -98,4 +98,79 @@ router.put('/logo', authenticate, authorize('OWNER'), async (req, res) => {
   }
 });
 
+router.post('/reset-data', authenticate, authorize('OWNER'), async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    const { confirm, clearPeople } = req.body || {};
+    if (confirm !== 'RESET') {
+      return res.status(400).json({
+        error: 'Andika confirm: "RESET" ili kuthibitisha',
+      });
+    }
+
+    await client.query('BEGIN');
+
+    const tables = [
+      'payments',
+      'approvals',
+      'physical_counts',
+      'stock_movements',
+      'stock_balances',
+      'sales',
+      'purchases',
+      'lots',
+      'expenses',
+      'daily_closes',
+      'audit_logs',
+    ];
+
+    for (const t of tables) {
+      try {
+        await client.query(`TRUNCATE TABLE ${t} RESTART IDENTITY CASCADE`);
+      } catch (e) {
+        try {
+          await client.query(`DELETE FROM ${t}`);
+        } catch (e2) {
+          console.warn(`Skip table ${t}:`, e2.message);
+        }
+      }
+    }
+
+    if (clearPeople) {
+      try {
+        await client.query(`TRUNCATE TABLE farmers RESTART IDENTITY CASCADE`);
+      } catch (e) {
+        try { await client.query(`DELETE FROM farmers`); } catch (_) {}
+      }
+      try {
+        await client.query(`TRUNCATE TABLE buyers RESTART IDENTITY CASCADE`);
+      } catch (e) {
+        try { await client.query(`DELETE FROM buyers`); } catch (_) {}
+      }
+    }
+
+    await client.query(
+      `INSERT INTO audit_logs (user_id, username, action, after_data)
+       VALUES ($1, $2, 'SYSTEM_RESET', $3)`,
+      [
+        req.user.id,
+        req.user.username,
+        JSON.stringify({ clearPeople: !!clearPeople, at: new Date().toISOString() }),
+      ]
+    );
+
+    await client.query('COMMIT');
+    res.json({
+      message: 'Taarifa zote za majaribio zimefutwa. Unaweza kuanza rasmi.',
+      clearedPeople: !!clearPeople,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: err.message || 'Reset failed' });
+  } finally {
+    client.release();
+  }
+});
+
 module.exports = router;
